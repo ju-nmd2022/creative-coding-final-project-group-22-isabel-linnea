@@ -12,6 +12,7 @@ let sketch = function (p) {
 	let canvas;
 	let boids = [];
 	let currentEmotion = "neutral";
+	let systemMood = "neutral";
 	let emotionColors = {
 		happy: "#FFA500",
 		sad: "#4169E1",
@@ -30,6 +31,10 @@ let sketch = function (p) {
 		"#f6684f",
 		"#ffd300",
 	];
+	let happyDuration = 0;
+	let sadDuration = 0;
+	let lastEmotion = "neutral";
+	let particles = []; //new particles
 
 	const C = {
 		loaded: false,
@@ -111,6 +116,7 @@ let sketch = function (p) {
 				if (emotion !== currentEmotion) {
 					console.log("Emotion changed to:", emotion);
 					currentEmotion = emotion;
+					updateSystemMood();
 				}
 			}
 		}, 100);
@@ -120,6 +126,37 @@ let sketch = function (p) {
 		return Object.keys(expressions).reduce((a, b) =>
 			expressions[a] > expressions[b] ? a : b
 		);
+	}
+
+	// new function to update system mood with help from Claude.ai
+	function updateSystemMood() {
+		if (currentEmotion === "happy") {
+			happyDuration++;
+			if (happyDuration > 50 && p.random() < 0.1) {
+				systemMood = "glad";
+			}
+		} else {
+			happyDuration = 0;
+		}
+
+		if (currentEmotion === "sad") {
+			sadDuration++;
+			if (sadDuration > 100) {
+				systemMood = "depressed";
+			}
+		} else {
+			sadDuration = 0;
+		}
+
+		if (lastEmotion === "sad" && currentEmotion === "angry") {
+			systemMood = "angry";
+		}
+
+		if (systemMood !== "neutral" && p.random() < 0.01) {
+			systemMood = "neutral";
+		}
+
+		lastEmotion = currentEmotion;
 	}
 
 	p.draw = function () {
@@ -134,24 +171,116 @@ let sketch = function (p) {
 			boid.display();
 		}
 
-		// draw with p5brush
-		let available_brushes = brush.box();
-		brush.set(p.random(available_brushes), p.random(palette), 1);
-		brush.flowLine(
-			p.random(p.width),
-			p.random(p.height),
-			p.random(300, 800),
-			p.random(0, 360)
-		);
+		// draw system mood strokes
+		drawSystemMoodStrokes();
 
-		// display current emotion
+		// update and display particles
+		updateParticles();
+
+		// display current emotion and system mood
 		p.fill(0);
 		p.textSize(32);
 		p.textAlign(p.CENTER, p.CENTER);
-		p.text(currentEmotion.toUpperCase(), p.width / 2, p.height - 50);
+		p.text(currentEmotion.toUpperCase(), p.width / 2, p.height - 80);
+		p.text(
+			"System Mood: " + systemMood.toUpperCase(),
+			p.width / 2,
+			p.height - 40
+		);
 
 		p.pop();
 	};
+
+	// New function to draw system mood strokes
+	function drawSystemMoodStrokes() {
+		let available_brushes = brush.box();
+		switch (systemMood) {
+			case "glad":
+				if (p.random() < 0.1) {
+					brush.set(p.random(available_brushes), p.random(palette), 1);
+					brush.flowLine(
+						p.random(p.width),
+						p.random(p.height),
+						p.random(100, 300),
+						p.random(0, 360)
+					);
+				}
+				break;
+			case "depressed":
+				if (p.random() < 0.05) {
+					brush.set(
+						p.random(available_brushes),
+						p.color(p.random(palette), 50),
+						0.5
+					);
+					brush.flowLine(
+						p.random(p.width),
+						p.height - p.random(50),
+						p.random(50, 150),
+						0
+					);
+				}
+				break;
+			case "angry":
+				if (p.frameCount % 10 < 5) {
+					brush.set(p.random(available_brushes), p.color(255, 0, 0), 2);
+					brush.flowLine(
+						p.random(p.width),
+						p.random(p.height),
+						p.random(200, 400),
+						p.random(0, 360)
+					);
+				}
+				break;
+		}
+	}
+
+	// New particle system
+	class Particle {
+		constructor(x, y) {
+			this.position = p.createVector(x, y);
+			this.velocity = p5.Vector.random2D().mult(p.random(1, 3));
+			this.acceleration = p.createVector(0, 0);
+			this.lifespan = 255;
+			this.color = p.color(p.random(palette));
+		}
+
+		update() {
+			this.velocity.add(this.acceleration);
+			this.position.add(this.velocity);
+			this.lifespan -= 2;
+			this.acceleration.mult(0);
+		}
+
+		display() {
+			p.noStroke();
+			p.fill(this.color, this.lifespan);
+			p.ellipse(this.position.x, this.position.y, 8, 8);
+		}
+
+		isDead() {
+			return this.lifespan < 0;
+		}
+	}
+
+	function updateParticles() {
+		// Add new particles based on emotion
+		if (p.random() < 0.1) {
+			let x = p.random(p.width);
+			let y = p.random(p.height);
+			particles.push(new Particle(x, y));
+		}
+
+		// Update and display particles
+		for (let i = particles.length - 1; i >= 0; i--) {
+			let particle = particles[i];
+			particle.update();
+			particle.display();
+			if (particle.isDead()) {
+				particles.splice(i, 1);
+			}
+		}
+	}
 
 	//the code for this Boid class was adapted from Garrit Schaap and Daniel Shiffman https://codepen.io/pixelkind/pen/oNJzppX,
 	//with use of Claude.ai for assistance in gravity
@@ -250,6 +379,7 @@ let sketch = function (p) {
 			wanderForce.mult(0.1);
 			this.acceleration.add(wanderForce);
 		}
+
 		//the following 5 lines of code were adapted from acamposuribe's p5.brush.js Example 1 - Brush Rain https://editor.p5js.org/acamposuribe/sketches/PmH_Bbk4L
 		display() {
 			let available_brushes = brush.box();
