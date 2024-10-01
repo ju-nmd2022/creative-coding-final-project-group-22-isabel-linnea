@@ -12,7 +12,11 @@ let sketch = function (p) {
 	let canvas;
 	let boids = [];
 	let currentEmotion = "neutral";
-	let systemMood = "neutral";
+	let systemMood = "neutral"
+	let fearDuration = 0;
+	let traumaState = "none";
+	let traumaTimer = 0;
+	const TRAUMA_DURATION = 300;
 	let emotionColors = {
 		happy: "#FFA500",
 		sad: "#4169E1",
@@ -156,28 +160,54 @@ let sketch = function (p) {
 			systemMood = "neutral";
 		}
 
+		if (currentEmotion === "fearful") {
+			fearDuration ++; 
+			if(fearDuration > 150 && traumaState === "none"){
+				triggerTraumaResponse();
+			}
+		} else {
+			fearDuration = 0;
+			if (traumaState !== "none" && ++ traumaTimer > TRAUMA_DURATION) {
+				traumaState = "none";
+				traumaTimer = 0;
+			}
+		}
+
 		lastEmotion = currentEmotion;
 	}
 
+	function triggerTraumaResponse() {
+		let response = p.random(["fight", "flight", "freeze", "dissociate"]);
+		traumaState = response;
+		traumaTimer = 0;
+		console.log("Trauma response triggered:", response);
+	  }
+
+
 	p.draw = function () {
 		p.frameRate(30);
-		p.background("#fffceb");
 		p.push();
 		p.translate(-p.width / 2, -p.height / 2);
 
+		if (traumaState === "dissociate") {
+			p.background(255, 200); //Create a blurry effect
+		  } else {
+			p.background("#fffceb");
+		  }
+		  updateTraumaState();
+	
 		// update and display Boids
 		for (let boid of boids) {
-			boid.update();
-			boid.display();
+		  boid.update();
+		  boid.display();
 		}
-
 		// draw system mood strokes
 		drawSystemMoodStrokes();
 
 		// update and display particles
 		updateParticles();
 
-		// display current emotion and system mood
+		//display current emotion and system mood
 		p.fill(0);
 		p.textSize(32);
 		p.textAlign(p.CENTER, p.CENTER);
@@ -185,13 +215,49 @@ let sketch = function (p) {
 		p.text(
 			"System Mood: " + systemMood.toUpperCase(),
 			p.width / 2,
-			p.height - 40
+			p.height/2 - 0
 		);
+		p.text(
+			"Trauma State: " + traumaState.toUpperCase(),
+			p.width / 2,
+			p.height - 40
+		  );
+		  
 
 		p.pop();
+		  
 	};
 
-	// New function to draw system mood strokes
+	function updateTraumaState() {
+		switch (traumaState) {
+		  case "fight":
+			for (let boid of boids) {
+			  boid.fight();
+			}
+			break;
+		  case "flight":
+			for (let boid of boids) {
+			  boid.flee();
+			}
+			break;
+		  case "freeze":
+			//Do nothing, boids and particles will not move
+			break;
+		  case "dissociate":
+			//Particles gradually die
+			for (let i = particles.length - 1; i >= 0; i--) {
+			  particles[i].lifespan -= 5;
+			  if (particles[i].isDead()) {
+				particles.splice(i, 1);
+				console.log("trauma state: dissociate");
+			  }
+			}
+			break;
+		}
+	  }
+
+
+	//New function to draw system mood strokes
 	function drawSystemMoodStrokes() {
 		let available_brushes = brush.box();
 		switch (systemMood) {
@@ -246,10 +312,12 @@ let sketch = function (p) {
 		}
 
 		update() {
-			this.velocity.add(this.acceleration);
-			this.position.add(this.velocity);
-			this.lifespan -= 2;
-			this.acceleration.mult(0);
+			if (traumaState !== "freeze") {
+				this.velocity.add(this.acceleration);
+				this.position.add(this.velocity);
+				this.lifespan -= 2;
+				this.acceleration.mult(0);
+			}
 		}
 
 		display() {
@@ -294,6 +362,9 @@ let sketch = function (p) {
 		}
 
 		update() {
+
+			if (traumaState === "freeze") return; //Don't move if frozen
+
 			switch (currentEmotion) {
 				case "happy":
 					this.cluster();
@@ -323,6 +394,43 @@ let sketch = function (p) {
 			this.acceleration.mult(0);
 			this.borders();
 		}
+
+		fight() {
+			let center = p.createVector(p.width / 2, p.height / 2);
+			let toCenter = p5.Vector.sub(center, this.position);
+			toCenter.setMag(this.maxSpeed);
+			this.acceleration.add(toCenter);
+	  
+			for (let other of boids) {
+			  if (other !== this) {
+				let d = p5.Vector.dist(this.position, other.position);
+				if (d < 50) {
+				  let collisionForce = p5.Vector.sub(this.position, other.position);
+				  collisionForce.setMag(this.maxForce * 2);
+				  this.acceleration.add(collisionForce);
+				}
+			  }
+			}
+		  }
+
+		flee() {
+			let edge = this.closestEdge();
+			let toEdge = p5.Vector.sub(edge, this.position);
+			toEdge.setMag(this.maxSpeed);
+			this.acceleration.add(toEdge);
+		  }
+
+		  closestEdge() {
+			let edges = [
+			  p.createVector(0, this.position.y),
+			  p.createVector(p.width, this.position.y),
+			  p.createVector(this.position.x, 0),
+			  p.createVector(this.position.x, p.height)
+			];
+			return edges.reduce((closest, edge) => 
+			  p5.Vector.dist(this.position, edge) < p5.Vector.dist(this.position, closest) ? edge : closest
+			);
+		  }
 
 		cluster() {
 			let center = p.createVector(p.width / 2, p.height / 2);
