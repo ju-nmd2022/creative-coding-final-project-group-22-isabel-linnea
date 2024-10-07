@@ -104,10 +104,10 @@ let sketch = function (p) {
 	//the following 2 functions were adapted using a tutorial by Web Dev Simplified on YouTube https://www.youtube.com/watch?v=CVClHLwv-4I
 	function loadFaceAPI() {
 		Promise.all([
-			faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
-			faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
-			faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
-			faceapi.nets.faceExpressionNet.loadFromUri("/models"),
+			faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+			faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
+			faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
+			faceapi.nets.faceExpressionNet.loadFromUri("./models"),
 		]).then(startFaceDetection);
 	}
 
@@ -147,7 +147,7 @@ let sketch = function (p) {
 		// Gradually decrease other emotion durations
 		if (currentEmotion !== "happy")
 			happyDuration = Math.max(0, happyDuration - 0.5);
-		if (currentEmotion !== "sad") sadDuration = Math.max(0, sadDuration - 0.5);
+		if (currentEmotion !== "sad") sadDuration = Math.max(0, sadDuration - 0.8);
 		if (currentEmotion !== "angry")
 			angryDuration = Math.max(0, angryDuration - 0.5);
 		if (currentEmotion !== "neutral")
@@ -167,7 +167,7 @@ let sketch = function (p) {
 
 		if (maxDuration > 0) {
 			if (happyDuration === maxDuration && happyDuration > 90) newMood = "glad";
-			else if (sadDuration === maxDuration && sadDuration > 150)
+			else if (sadDuration === maxDuration && sadDuration > 30)
 				newMood = "depressed";
 			else if (angryDuration === maxDuration && angryDuration > 50)
 				newMood = "angry";
