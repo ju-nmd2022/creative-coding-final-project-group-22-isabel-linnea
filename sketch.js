@@ -41,8 +41,10 @@ let sketch = function (p) {
 	let happyDuration = 0;
 	let sadDuration = 0;
 	let angryDuration = 0;
+	let currentBrushType;
 	let lastEmotion = "neutral";
 	let particles = []; //new particles
+	let imprints = [];
 
 	const C = {
 		loaded: false,
@@ -88,7 +90,6 @@ let sketch = function (p) {
 		brush.load();
 		brush.scaleBrushes(1.5);
 		brush.field("seabed"); //credits to the p5.brush library and acamposuribe https://editor.p5js.org/acamposuribe/sketches/PmH_Bbk4L
-
 		video = p.createCapture(p.VIDEO);
 		video.size(320, 240);
 		video.hide();
@@ -96,6 +97,8 @@ let sketch = function (p) {
 		for (let i = 0; i < 50; i++) {
 			boids.push(new Boid());
 		}
+
+		updateBrushForAllBoids();
 
 		loadFaceAPI();
 		console.log("Setup complete");
@@ -196,17 +199,31 @@ let sketch = function (p) {
 			}
 		}
 
-		console.log("Current Emotion:", currentEmotion);
-		console.log("System Mood:", systemMood);
-		console.log("Happy Duration:", happyDuration);
-		console.log("Sad Duration:", sadDuration);
-		console.log("Angry Duration:", angryDuration);
-		console.log("Boredom Timer:", boredomTimer);
-		console.log("Fear Duration:", fearDuration);
-		console.log("Trauma State:", traumaState);
-		console.log("Trauma Timer:", traumaTimer);
+		if (currentEmotion !== lastEmotion) {
+			updateBrushForAllBoids();
+			lastEmotion = currentEmotion;
+		}
+		//troubleshooting console
+		// console.log("Current Emotion:", currentEmotion);
+		// console.log("System Mood:", systemMood);
+		// // console.log("Happy Duration:", happyDuration);
+		// // console.log("Sad Duration:", sadDuration);
+		// // console.log("Angry Duration:", angryDuration);
+		// console.log("Boredom Timer:", boredomTimer);
+		// // console.log("Fear Duration:", fearDuration);
+		// console.log("Trauma State:", traumaState);
+		// console.log("Trauma Timer:", traumaTimer);
 
 		lastEmotion = currentEmotion;
+	}
+
+	function updateBrushForAllBoids() {
+		let availableBrushes = ["marker", "marker2", "HB", "2H", "pen"];
+		currentBrushType = p.random(availableBrushes);
+
+		for (let boid of boids) {
+			boid.brushType = currentBrushType;
+		}
 	}
 
 	function triggerTraumaResponse() {
@@ -222,7 +239,7 @@ let sketch = function (p) {
 		p.translate(-p.width / 2, -p.height / 2);
 
 		if (systemMood === "depressed") {
-			backgroundDarkness = p.lerp(backgroundDarkness, 0.8, 0.03);
+			backgroundDarkness = p.lerp(backgroundDarkness, 1, 0.03);
 		} else {
 			backgroundDarkness = p.lerp(backgroundDarkness, 0, 0.05);
 		}
@@ -235,7 +252,7 @@ let sketch = function (p) {
 		p.rect(0, 0, p.width, p.height);
 
 		if (traumaState === "dissociate") {
-			p.drawingContext.filter = "blur(5px)";
+			p.drawingContext.filter = "blur(10px)";
 		} else {
 			p.drawingContext.filter = "none";
 		}
@@ -252,23 +269,26 @@ let sketch = function (p) {
 		// update and display particles
 		updateParticles();
 
-		//display current emotion and system mood
-		p.fill(0);
-		p.textSize(32);
-		p.textAlign(p.CENTER, p.CENTER);
-		p.text(currentEmotion.toUpperCase(), p.width / 2, p.height - 80);
-		p.text(
-			"System Mood: " + systemMood.toUpperCase(),
-			p.width / 2,
-			p.height / 2 - 0
-		);
-		p.text(
-			"Trauma State: " + traumaState.toUpperCase(),
-			p.width / 2,
-			p.height - 40
-		);
+		//draw imprints
+		drawImprints();
 
-		p.pop();
+		//display current emotion and system mood for troubleshooting and demonstration
+		// p.fill(0);
+		// p.textSize(32);
+		// p.textAlign(p.CENTER, p.CENTER);
+		// p.text(currentEmotion.toUpperCase(), p.width / 2, p.height - 80);
+		// p.text(
+		// 	"System Mood: " + systemMood.toUpperCase(),
+		// 	p.width / 2,
+		// 	p.height / 2 - 0
+		// );
+		// p.text(
+		// 	"Trauma State: " + traumaState.toUpperCase(),
+		// 	p.width / 2,
+		// 	p.height - 40
+		// );
+
+		// p.pop();
 	};
 
 	function updateTraumaState() {
@@ -300,7 +320,7 @@ let sketch = function (p) {
 		console.log("Current trauma state:", traumaState);
 	}
 
-	//New function to draw system mood strokes
+	//function to draw system mood strokes adapted by Claude.ai
 	function drawSystemMoodStrokes() {
 		let available_brushes = brush.box();
 
@@ -370,13 +390,13 @@ let sketch = function (p) {
 	class Particle {
 		constructor(x, y) {
 			this.position = p.createVector(x, y);
-			this.velocity = p5.Vector.random2D().mult(p.random(1, 3));
+			this.velocity = p5.Vector.random2D().mult(p.random(0.5, 2));
 			this.acceleration = p.createVector(0, 0);
-			this.lifespan = 255;
 			this.color = p.color(p.random(palette));
 			this.size = p.random(5, 15);
-			this.shape = p.random(["circle", "square", "triangle", "star"]);
-			this.glowSize = this.size * 2;
+			this.opacity = p.random(50, 200);
+			this.lifespan = p.random(100, 300);
+			this.maxLifespan = this.lifespan;
 		}
 
 		update() {
@@ -384,93 +404,42 @@ let sketch = function (p) {
 				this.velocity.add(this.acceleration);
 				this.position.add(this.velocity);
 				this.acceleration.mult(0);
-				this.rotation += 0.05;
 			}
 
 			if (systemMood === "depressed") {
 				this.lifespan -= 0.5;
 			} else if (systemMood !== "bored" && systemMood !== "glad") {
-				this.lifespan -= 2;
+				this.lifespan -= 1;
 			}
+
+			this.opacity = p.map(this.lifespan, 0, this.maxLifespan, 0, 200);
 		}
 
 		display() {
-			p.push();
-			p.translate(this.position.x, this.position.y);
-			p.rotate(this.rotation);
 			p.noStroke();
-			let displayColor = this.color;
-
-			if (systemMood === "glad") {
-				let glowColor = p.color(this.color.toString());
-				glowColor.setAlpha(50);
-				p.fill(glowColor);
-				this.drawShape(this.shape, this.size * 2);
-			}
-
-			if (systemMood === "depressed") {
-				displayColor.setAlpha(this.lifespan * 0.2);
-			} else if (systemMood !== "bored") {
-				displayColor.setAlpha(this.lifespan);
-			}
-
-			p.fill(displayColor);
-			this.drawShape(this.shape, this.size);
-			p.pop();
-		}
-
-		drawShape(shape, size) {
-			switch (shape) {
-				case "circle":
-					p.ellipse(0, 0, size, size);
-					break;
-				case "square":
-					p.rect(-size / 2, -size / 2, size, size);
-					break;
-				case "triangle":
-					p.triangle(0, -size / 2, -size / 2, size / 2, size / 2, size / 2);
-					break;
-				case "star":
-					this.drawStar(0, 0, size / 2, size / 4, 5);
-					break;
-			}
-		}
-
-		drawStar(x, y, radius1, radius2, npoints) {
-			let angle = p.TWO_PI / npoints;
-			let halfAngle = angle / 2.0;
-			p.beginShape();
-			for (let a = 0; a < p.TWO_PI; a += angle) {
-				let sx = x + p.cos(a) * radius2;
-				let sy = y + p.sin(a) * radius2;
-				p.vertex(sx, sy);
-				sx = x + p.cos(a + halfAngle) * radius1;
-				sy = y + p.sin(a + halfAngle) * radius1;
-				p.vertex(sx, sy);
-			}
-			p.endShape(p.CLOSE);
+			let c = this.color;
+			c.setAlpha(this.opacity);
+			p.fill(c);
+			p.ellipse(this.position.x, this.position.y, this.size);
 		}
 
 		isDead() {
-			return (
-				this.lifespan < 0 && systemMood !== "bored" && systemMood !== "glad"
-			);
+			return this.lifespan <= 0;
 		}
 	}
 
 	function updateParticles() {
-		// add new particles based on emotion
-		if (p.random() < 0.1 && systemMood !== "bored" && systemMood !== "glad") {
+		if (p.random() < 0.1 && systemMood !== "bored" && particles.length < 100) {
 			let x = p.random(p.width);
 			let y = p.random(p.height);
 			particles.push(new Particle(x, y));
 		}
 
-		// Update and display particles
 		for (let i = particles.length - 1; i >= 0; i--) {
 			let particle = particles[i];
 			particle.update();
 			particle.display();
+
 			if (particle.isDead()) {
 				particles.splice(i, 1);
 			}
@@ -631,23 +600,51 @@ let sketch = function (p) {
 
 		//the following 5 lines of code were adapted from acamposuribe's p5.brush.js Example 1 - Brush Rain https://editor.p5js.org/acamposuribe/sketches/PmH_Bbk4L
 		display() {
-			let available_brushes = brush.box();
-			brush.set(p.random(available_brushes), emotionColors[currentEmotion], 1);
+			p.push();
+			p.translate(this.position.x, this.position.y);
+
+			brush.set(this.brushType, emotionColors[currentEmotion], 1);
+
+			let strokeWeight = 1;
+			if (["angry", "happy", "surprised"].includes(currentEmotion)) {
+				strokeWeight = p.map(p.sin(p.frameCount * 0.1), -1, 1, 1.5, 2.5);
+			} else if (["sad", "fearful", "disgusted"].includes(currentEmotion)) {
+				strokeWeight = p.map(p.sin(p.frameCount * 0.1), -1, 1, 0.5, 1);
+			}
+			brush.strokeWeight(strokeWeight);
+			brush.fillAnimatedMode(true);
+			brush.bleed(0);
+			brush.noFill(0);
 
 			let size = 10;
 			if (systemMood === "bored") size = 5;
 			if (currentEmotion === "sad") size = 2;
 			if (systemMood === "angry") size = 20;
 
-			brush.circle(this.position.x, this.position.y, size);
+			brush.circle(0, 0, size);
 
-			if (p.random() < 0.001) {
-				//random imprinting
-				p.push();
-				p.noStroke();
-				p.fill(p.color(emotionColors[currentEmotion]));
-				p.circle(this.position.x, this.position.y, size * 1.5);
-				p.pop();
+			if (currentEmotion === "angry" || systemMood === "angry") {
+				this.brushType = p.random(brush.box());
+			}
+
+			p.pop();
+		}
+	}
+
+	function drawImprints() {
+		for (let i = imprints.length - 1; i >= 0; i--) {
+			let imprint = imprints[i];
+			p.push();
+			p.noStroke();
+			let imprintColor = imprint.color;
+			imprintColor.setAlpha(imprint.opacity);
+			p.fill(imprintColor);
+			p.circle(imprint.x, imprint.y, imprint.size);
+			p.pop();
+
+			imprint.lifespan--;
+			if (imprint.lifespan <= 0) {
+				imprints.splice(i, 1);
 			}
 		}
 	}
