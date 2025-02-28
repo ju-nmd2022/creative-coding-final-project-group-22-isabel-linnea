@@ -1,6 +1,6 @@
 //this version of the code was updated by Linnea Nilsson and Isabel Sivira
 
-//this code was adapted using Claude.ai,
+//this code was adapted using Claude.ai: https://claude.ai/share/2b4c6316-e452-4591-ab28-b5e09d331ec5 + https://claude.ai/share/a023b451-4450-4a50-b075-e019e08ada74,
 //Web Dev Simplified on YouTube https://www.youtube.com/watch?v=CVClHLwv-4I,
 //tutorials from Garrit Schaap as provided in our Creative Coding course modules,
 //p5.brush tutorials from acamposuribe,
